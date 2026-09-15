@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyLevel, computeRisk } from '../../src/risk/model.js';
+import { classifyLevel, computeRisk, levelMeetsOrExceeds } from '../../src/risk/model.js';
 import { DEFAULT_RISK_THRESHOLDS } from '../../src/config/schema.js';
 import type { Signal } from '../../src/domain/types.js';
 
@@ -91,5 +91,19 @@ describe('classifyLevel', () => {
     expect(classifyLevel(8, DEFAULT_RISK_THRESHOLDS)).toBe('high');
     expect(classifyLevel(12, DEFAULT_RISK_THRESHOLDS)).toBe('high');
     expect(classifyLevel(13, DEFAULT_RISK_THRESHOLDS)).toBe('critical');
+  });
+});
+
+describe('levelMeetsOrExceeds', () => {
+  it('treats a level as meeting itself', () => {
+    expect(levelMeetsOrExceeds('high', 'high')).toBe(true);
+  });
+
+  it('treats a higher level as exceeding a lower threshold', () => {
+    expect(levelMeetsOrExceeds('critical', 'moderate')).toBe(true);
+  });
+
+  it('treats a lower level as not meeting a higher threshold', () => {
+    expect(levelMeetsOrExceeds('low', 'high')).toBe(false);
   });
 });

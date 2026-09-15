@@ -53,3 +53,15 @@ export function classifyLevel(score: number, thresholds: RiskThresholds): RiskLe
   if (score >= thresholds.moderate) return 'moderate';
   return 'low';
 }
+
+const LEVEL_SEVERITY: Record<RiskLevel, number> = {
+  low: 0,
+  moderate: 1,
+  high: 2,
+  critical: 3,
+};
+
+/** True if `level` is at or above `threshold` in severity - used by `analyze --fail-on`. */
+export function levelMeetsOrExceeds(level: RiskLevel, threshold: RiskLevel): boolean {
+  return LEVEL_SEVERITY[level] >= LEVEL_SEVERITY[threshold];
+}
