@@ -1,10 +1,22 @@
-import { Command } from 'commander';
+import { Command, InvalidArgumentError } from 'commander';
 import { runAnalysis } from '../analyze.js';
 import { renderTerminalReport } from '../reporters/terminal.js';
 import { renderJsonReport } from '../reporters/json.js';
 import { renderMarkdownReport } from '../reporters/markdown.js';
 import { renderExplainOverview, renderExplainSignal } from './explain.js';
 import { GitError } from '../git/repository.js';
+import { levelMeetsOrExceeds } from '../risk/model.js';
+import type { RiskLevel } from '../domain/types.js';
+
+const RISK_LEVELS: RiskLevel[] = ['low', 'moderate', 'high', 'critical'];
+
+function parseFailOn(value: string): RiskLevel {
+  const normalized = value.toLowerCase();
+  if (!RISK_LEVELS.includes(normalized as RiskLevel)) {
+    throw new InvalidArgumentError(`must be one of: ${RISK_LEVELS.join(', ')}`);
+  }
+  return normalized as RiskLevel;
+}
 
 export function createProgram(): Command {
   const program = new Command();
@@ -21,19 +33,36 @@ export function createProgram(): Command {
     .option('--head <ref>', 'head ref to compare (requires --base)')
     .option('--json', 'output structured JSON instead of the terminal report')
     .option('--markdown', 'output a Markdown report (e.g. for a GitHub Actions job summary)')
-    .action((opts: { base?: string; head?: string; json?: boolean; markdown?: boolean }) => {
-      try {
-        const result = runAnalysis({ cwd: process.cwd(), base: opts.base, head: opts.head });
-        const output = opts.json
-          ? renderJsonReport(result)
-          : opts.markdown
-            ? renderMarkdownReport(result)
-            : renderTerminalReport(result);
-        process.stdout.write(output + '\n');
-      } catch (error) {
-        handleError(error);
-      }
-    });
+    .option(
+      '--fail-on <level>',
+      'exit with a non-zero status when risk reaches this level or higher (low, moderate, high, critical)',
+      parseFailOn,
+    )
+    .action(
+      (opts: {
+        base?: string;
+        head?: string;
+        json?: boolean;
+        markdown?: boolean;
+        failOn?: RiskLevel;
+      }) => {
+        try {
+          const result = runAnalysis({ cwd: process.cwd(), base: opts.base, head: opts.head });
+          const output = opts.json
+            ? renderJsonReport(result)
+            : opts.markdown
+              ? renderMarkdownReport(result)
+              : renderTerminalReport(result);
+          process.stdout.write(output + '\n');
+
+          if (opts.failOn && levelMeetsOrExceeds(result.risk.level, opts.failOn)) {
+            process.exitCode = 1;
+          }
+        } catch (error) {
+          handleError(error);
+        }
+      },
+    );
 
   program
     .command('explain [signal]')

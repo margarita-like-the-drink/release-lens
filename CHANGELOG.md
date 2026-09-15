@@ -25,3 +25,4 @@ this project uses [Semantic Versioning](https://semver.org/).
   Python, Java, C#, Go, and Ruby.
 - GitHub Actions workflow example publishing a Markdown report to the job
   summary.
+- `analyze --fail-on <level>` for gating CI on a minimum risk level.

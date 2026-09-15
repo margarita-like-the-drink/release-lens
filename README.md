@@ -171,6 +171,7 @@ release-lens analyze --base main              # everything since this branch div
 release-lens analyze --base main --head feature/foo   # a specific branch-to-branch diff
 release-lens analyze --json                   # structured output for tooling
 release-lens analyze --markdown               # Markdown, e.g. for a CI job summary
+release-lens analyze --fail-on high           # non-zero exit at HIGH or CRITICAL, for CI gating
 release-lens explain                          # how the risk model works, and every signal
 release-lens explain tests-deleted            # detail on one specific signal
 ```

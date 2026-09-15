@@ -72,6 +72,36 @@ describe('release-lens analyze', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('No changes were found to analyze.');
   });
+
+  it('exits non-zero with --fail-on when risk reaches the threshold', () => {
+    repo = new TempRepo();
+    repo.write('src/payments/retry.ts', 'export function retry() { return 1; }\n');
+    repo.commit('base');
+    repo.write('src/payments/retry.ts', 'export function retry() { return charge(); }\n');
+
+    const result = runCli(repo.dir, ['analyze', '--fail-on', 'low']);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('Release Risk');
+  });
+
+  it('stays zero with --fail-on when risk is below the threshold', () => {
+    repo = new TempRepo();
+    repo.write('README.md', '# Project\n');
+    repo.commit('base');
+    repo.write('README.md', '# Project\n\nMore detail.\n');
+
+    const result = runCli(repo.dir, ['analyze', '--fail-on', 'critical']);
+    expect(result.status).toBe(0);
+  });
+
+  it('rejects an invalid --fail-on value', () => {
+    repo = new TempRepo();
+    repo.write('a.txt', 'hello\n');
+    repo.commit('base');
+
+    const result = runCli(repo.dir, ['analyze', '--fail-on', 'nonsense']);
+    expect(result.status).not.toBe(0);
+  });
 });
 
 describe('release-lens explain', () => {
