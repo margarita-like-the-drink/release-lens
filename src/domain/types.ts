@@ -14,6 +14,10 @@ export type DiffLineType = 'add' | 'del' | 'context';
 export interface DiffLine {
   type: DiffLineType;
   content: string;
+  /** Line number in the file as it exists after the change (add/context lines only). */
+  newLine?: number;
+  /** Line number in the file as it existed before the change (delete/context lines only). */
+  oldLine?: number;
 }
 
 export interface DiffHunk {
@@ -80,6 +84,8 @@ export type RiskContribution = 'inherent' | 'coverage' | 'mitigation' | 'informa
 export interface SignalEvidence {
   file: string;
   description: string;
+  /** Line number in the file's new version, when the evidence points at a specific line rather than the file as a whole. */
+  line?: number;
 }
 
 export interface Signal {

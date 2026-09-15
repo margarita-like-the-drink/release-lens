@@ -156,3 +156,41 @@ migrations, tests, dependencies, config, style, assets, docs) before signals
 are detected. This is purely a presentation concern: when a signal's evidence
 spans several files, the first one shown in a report should be the most
 representative file, not whichever one `git diff` happened to list first.
+
+## Line-level evidence and the GitHub integration
+
+`parse-diff` reports each diff line's position in both the old and new file
+(`ln`/`ln1`/`ln2`). `git/diff.ts` carries that through as `newLine`/`oldLine`
+on every `DiffLine`, and `signals/textScan.ts`'s `findFirstMatchingLine`
+lets a detector attach the new-file line number of the specific line that
+matched, via an optional `line` field on `SignalEvidence`.
+
+Only line-attributable signals set it - the ones where "here is the exact
+line" is meaningful: payment, authentication, authorization,
+permission/role, validation, datetime, API endpoint, and error-handling
+keyword matches (via the shared `signals/keywordDetector.ts` for the first
+group), plus newly skipped tests and optional-to-required contract fields.
+Structural signals about a file or relationship as a whole (a migration
+existing, a dependency manifest changing, a coverage gap, a large diff)
+correctly have no single line to point to, and keep file-level evidence.
+
+`src/github/` consumes this, and only this - it has no knowledge of
+signals, risk, or recommendations beyond the `AnalysisResult` it's handed:
+
+- `reviewComments.ts` turns evidence with a `line` into one inline PR review
+  comment per (file, line), merging multiple signals that land on the same
+  line into a single comment instead of posting duplicates.
+- `checkRun.ts` turns the risk level (and an optional `--fail-on` threshold)
+  into a GitHub Check Run conclusion, reusing `renderMarkdownReport` for its
+  summary rather than building a second, parallel text format.
+- `context.ts` resolves who to authenticate as and what PR to post to,
+  preferring explicit CLI flags and falling back to the environment a
+  GitHub Actions `pull_request` job already provides.
+- `api.ts` is a deliberately small hand-written fetch wrapper for the two
+  endpoints ReleaseLens needs (`pulls/{n}/reviews`, `check-runs`) - not a
+  dependency on an SDK whose surface area is almost entirely unused here.
+
+None of this lives in `src/signals/` or `src/risk/`: GitHub is one possible
+consumer of an `AnalysisResult`, on equal footing with the terminal, JSON,
+and Markdown reporters. A future GitLab or Bitbucket integration would be
+a new sibling directory, not a change to the analysis pipeline.

@@ -1,8 +1,10 @@
+import type { SignalEvidence } from '../../domain/types.js';
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
 import { API_CONTRACT_PATH_PATTERNS } from '../keywords.js';
 import { detectOptionalToRequiredFields } from '../contractAnalysis.js';
+import { findFirstMatchingLine } from '../textScan.js';
 
 export const apiContractChanged: SignalDefinition = {
   id: 'api-contract-changed',
@@ -18,7 +20,7 @@ export const apiContractChanged: SignalDefinition = {
   qaResponse:
     'Verify existing consumers against the new contract, especially ones that relied on a field that is now required or removed.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
+    const evidence: SignalEvidence[] = [];
     const affected: string[] = [];
 
     for (const classification of ctx.classifications) {
@@ -29,10 +31,14 @@ export const apiContractChanged: SignalDefinition = {
 
       if (newlyRequiredFields.length > 0) {
         affected.push(file.path);
-        evidence.push({
-          file: file.path,
-          description: `Field(s) changed from optional to required: ${newlyRequiredFields.join(', ')}`,
-        });
+        const description = `Field(s) changed from optional to required: ${newlyRequiredFields.join(', ')}`;
+        const fieldPattern = new RegExp(`\\b${newlyRequiredFields[0]}\\b\\s*:`);
+        const line = findFirstMatchingLine(file, [fieldPattern]);
+        evidence.push(
+          line === undefined
+            ? { file: file.path, description }
+            : { file: file.path, description, line },
+        );
       } else if (isContractPath) {
         affected.push(file.path);
         evidence.push({ file: file.path, description: 'Contract-related file changed' });

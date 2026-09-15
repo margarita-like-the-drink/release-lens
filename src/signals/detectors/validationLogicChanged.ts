@@ -1,7 +1,7 @@
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { fileMatches } from '../textScan.js';
+import { detectByKeywords } from '../keywordDetector.js';
 import { VALIDATION_PATTERNS } from '../keywords.js';
 
 export const validationLogicChanged: SignalDefinition = {
@@ -18,17 +18,11 @@ export const validationLogicChanged: SignalDefinition = {
   qaResponse:
     'Test the boundaries directly: minimum, maximum, one below and above each boundary, decimals, null, empty, and malformed input.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
-    const affected: string[] = [];
-
-    for (const classification of ctx.classifications) {
-      if (classification.role !== 'production') continue;
-      if (fileMatches(classification.file, VALIDATION_PATTERNS)) {
-        affected.push(classification.file.path);
-        evidence.push({ file: classification.file.path, description: 'Validation logic changed' });
-      }
-    }
-
+    const { evidence, affected } = detectByKeywords(
+      ctx,
+      VALIDATION_PATTERNS,
+      'Validation logic changed',
+    );
     if (evidence.length === 0) return [];
     const weight = resolveWeight(validationLogicChanged, ctx.config);
     return [buildSignal(validationLogicChanged, weight, evidence, affected)];

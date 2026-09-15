@@ -1,4 +1,4 @@
-import { Command, InvalidArgumentError } from 'commander';
+import { Command } from 'commander';
 import { runAnalysis } from '../analyze.js';
 import { renderTerminalReport } from '../reporters/terminal.js';
 import { renderJsonReport } from '../reporters/json.js';
@@ -7,16 +7,8 @@ import { renderExplainOverview, renderExplainSignal } from './explain.js';
 import { GitError } from '../git/repository.js';
 import { levelMeetsOrExceeds } from '../risk/model.js';
 import type { RiskLevel } from '../domain/types.js';
-
-const RISK_LEVELS: RiskLevel[] = ['low', 'moderate', 'high', 'critical'];
-
-function parseFailOn(value: string): RiskLevel {
-  const normalized = value.toLowerCase();
-  if (!RISK_LEVELS.includes(normalized as RiskLevel)) {
-    throw new InvalidArgumentError(`must be one of: ${RISK_LEVELS.join(', ')}`);
-  }
-  return normalized as RiskLevel;
-}
+import { parseFailOn } from './riskLevelOption.js';
+import { registerReportCommand } from './githubReport.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -24,7 +16,7 @@ export function createProgram(): Command {
   program
     .name('release-lens')
     .description('Risk-based QA intelligence for every pull request.')
-    .version('0.1.0');
+    .version('0.2.0');
 
   program
     .command('analyze')
@@ -70,6 +62,8 @@ export function createProgram(): Command {
     .action((signal?: string) => {
       process.stdout.write((signal ? renderExplainSignal(signal) : renderExplainOverview()) + '\n');
     });
+
+  registerReportCommand(program);
 
   return program;
 }

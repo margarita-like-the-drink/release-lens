@@ -6,6 +6,32 @@ export function addedLines(file: ChangedFile): string[] {
   );
 }
 
+export interface LineMatch {
+  content: string;
+  line: number;
+}
+
+/** Added lines paired with their line number in the new file - for evidence a PR review comment can anchor to. */
+export function addedLinesWithNumbers(file: ChangedFile): LineMatch[] {
+  const matches: LineMatch[] = [];
+  for (const hunk of file.hunks) {
+    for (const line of hunk.lines) {
+      if (line.type === 'add' && line.newLine !== undefined) {
+        matches.push({ content: line.content, line: line.newLine });
+      }
+    }
+  }
+  return matches;
+}
+
+/** The new-file line number of the first added line matching any pattern, if any. */
+export function findFirstMatchingLine(file: ChangedFile, patterns: RegExp[]): number | undefined {
+  for (const { content, line } of addedLinesWithNumbers(file)) {
+    if (patterns.some((pattern) => pattern.test(content))) return line;
+  }
+  return undefined;
+}
+
 export function removedLines(file: ChangedFile): string[] {
   return file.hunks.flatMap((hunk) =>
     hunk.lines.filter((line) => line.type === 'del').map((line) => line.content),

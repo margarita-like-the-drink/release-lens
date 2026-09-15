@@ -1,7 +1,7 @@
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { fileMatches } from '../textScan.js';
+import { detectByKeywords } from '../keywordDetector.js';
 import { AUTHORIZATION_PATTERNS } from '../keywords.js';
 
 export const authorizationChanged: SignalDefinition = {
@@ -18,20 +18,11 @@ export const authorizationChanged: SignalDefinition = {
   qaResponse:
     'Test the access-control boundary directly: an authenticated user without permission, one with it, and a direct API call that bypasses the UI.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
-    const affected: string[] = [];
-
-    for (const classification of ctx.classifications) {
-      if (classification.role !== 'production') continue;
-      if (fileMatches(classification.file, AUTHORIZATION_PATTERNS)) {
-        affected.push(classification.file.path);
-        evidence.push({
-          file: classification.file.path,
-          description: 'Authorization-related code changed',
-        });
-      }
-    }
-
+    const { evidence, affected } = detectByKeywords(
+      ctx,
+      AUTHORIZATION_PATTERNS,
+      'Authorization-related code changed',
+    );
     if (evidence.length === 0) return [];
     const weight = resolveWeight(authorizationChanged, ctx.config);
     return [buildSignal(authorizationChanged, weight, evidence, affected)];

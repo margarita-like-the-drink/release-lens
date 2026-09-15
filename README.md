@@ -174,6 +174,7 @@ release-lens analyze --markdown               # Markdown, e.g. for a CI job summ
 release-lens analyze --fail-on high           # non-zero exit at HIGH or CRITICAL, for CI gating
 release-lens explain                          # how the risk model works, and every signal
 release-lens explain tests-deleted            # detail on one specific signal
+release-lens report github --dry-run          # preview inline PR comments + check run (see GitHub Actions)
 ```
 
 No configuration is required. Add a `.releaselens.yml` when you want to teach
@@ -330,6 +331,10 @@ rather than failing the analysis.
 
 ## GitHub Actions
 
+Two complementary integration points: a job summary (always useful, needs
+nothing but the CLI) and `report github` (richer, needs a token and PR
+context, which a `pull_request` workflow already has).
+
 ```yaml
 name: ReleaseLens
 
@@ -339,6 +344,9 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      checks: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -351,17 +359,41 @@ jobs:
       - run: npm install --global release-lens
       - run: git fetch origin "${{ github.base_ref }}"
 
-      - run: |
+      - name: Publish to the job summary
+        run: |
           release-lens analyze --base "origin/${{ github.base_ref }}" --markdown \
             >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post inline review comments and a check run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: release-lens report github --base "origin/${{ github.base_ref }}"
 ```
+
+`report github` needs no flags inside a standard `pull_request` job: it
+reads the repository, pull request number, and head commit SHA from the
+environment GitHub Actions already provides (`GITHUB_REPOSITORY` and the
+`pull_request` event payload at `GITHUB_EVENT_PATH`), and the token from
+`GITHUB_TOKEN`. It then:
+
+- **Posts one PR review** containing an inline comment on every diff line a
+  signal's evidence points to (payment/auth/validation/datetime/permission
+  keyword matches, newly skipped tests, a field narrowed from optional to
+  required, and similar - see `docs/architecture.md` for exactly which
+  signals carry line-level evidence), plus the full report as the review's
+  summary body for everything that isn't line-specific.
+- **Creates a Check Run** named "ReleaseLens" showing the risk level and
+  score. Without `--fail-on`, it's informational only (`neutral`, never
+  blocks a merge). With `--fail-on high` (for example), it becomes a real
+  gate: `failure` at HIGH or CRITICAL, `success` otherwise - matching
+  `analyze --fail-on`'s semantics exactly.
+- Supports `--dry-run` to print exactly what it would post, without a token
+  or network access - useful for testing a workflow change locally.
 
 This repository's own [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 does the equivalent against its own pull requests (see
 [Dogfooding](#dogfooding)) - it builds ReleaseLens from source rather than
-installing it, since it can't yet depend on its own published package, and
-also posts the report as a pull request comment via `actions/github-script`,
-with no third-party action required.
+installing it, since it can't yet depend on its own published package.
 
 ## Explainability
 
@@ -428,15 +460,23 @@ can't drift out of sync with what actually fires.
   "affectedAreas": [{ "name": "payment", "files": ["src/payments/retry.ts"] }],
   "signals": [
     {
-      "id": "tests-deleted",
-      "title": "Tests were deleted",
-      "category": "coverage",
-      "contribution": "coverage",
-      "weight": 3,
-      "confidence": "high",
+      "id": "payment-logic-changed",
+      "title": "Payment processing changed",
+      "category": "critical-path",
+      "contribution": "inherent",
+      "weight": 4,
+      "confidence": "medium",
       "explanation": "...",
-      "evidence": [{ "file": "tests/checkout.spec.ts", "description": "2 test case(s) removed" }],
-      "affectedFiles": ["tests/checkout.spec.ts"],
+      // "line" is present when evidence points at a specific diff line (used for
+      // inline PR review comments); omitted for file-level evidence.
+      "evidence": [
+        {
+          "file": "src/payments/retry.ts",
+          "description": "Payment processing changed",
+          "line": 12,
+        },
+      ],
+      "affectedFiles": ["src/payments/retry.ts"],
     },
   ],
   "risk": {
@@ -564,21 +604,25 @@ for adding a new signal. Also see
 
 ## Roadmap
 
-**v0.1 (this release)** - local Git diff analysis, 23 explainable signals,
-risk classification, QA recommendations, terminal/JSON/Markdown output,
+**v0.1** - local Git diff analysis, 23 explainable signals, risk
+classification, QA recommendations, terminal/JSON/Markdown output,
 `.releaselens.yml` configuration, a GitHub Actions example.
 
-**v0.2 (planned)** - richer GitHub PR integration, additional
-language/framework detection, custom feature-to-test mappings beyond the
-current `featureMappings` config.
+**v0.2 (this release)** - richer GitHub PR integration: `release-lens report
+github` posts line-anchored inline review comments and a Check Run
+reflecting risk level, with `--fail-on` for CI gating; `analyze --fail-on`
+for the same gating without GitHub specifically; line-number evidence for
+the ten signals where a specific line is meaningful.
 
-**v0.3 (planned)** - test-history integration, flaky-test context,
-coverage-diff context, CODEOWNERS-aware evidence.
+**v0.3 (planned)** - additional language/framework detection, custom
+feature-to-test mappings beyond the current `featureMappings` config,
+test-history integration, flaky-test context, coverage-diff context,
+CODEOWNERS-aware evidence.
 
 **v0.4 (planned)** - OpenAPI-specific contract analysis, historical risk
 trends across releases, escaped-defect/incident context.
 
-Items beyond v0.1 are intentions, not commitments, and are not implemented.
+Items beyond v0.2 are intentions, not commitments, and are not implemented.
 
 ## Project philosophy
 
