@@ -1,7 +1,9 @@
+import type { SignalEvidence } from '../../domain/types.js';
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { analyzeTestChurn } from '../testCaseCounting.js';
+import { SKIP_PATTERNS, analyzeTestChurn } from '../testCaseCounting.js';
+import { findFirstMatchingLine } from '../textScan.js';
 
 export const testsSkipped: SignalDefinition = {
   id: 'tests-skipped',
@@ -17,7 +19,7 @@ export const testsSkipped: SignalDefinition = {
   qaResponse:
     'Confirm there is a tracked reason and owner for the skip. A skipped test in a change touching related production code is a specific risk, not a formality.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
+    const evidence: SignalEvidence[] = [];
     const affected: string[] = [];
 
     for (const classification of ctx.classifications) {
@@ -25,10 +27,13 @@ export const testsSkipped: SignalDefinition = {
       const churn = analyzeTestChurn(classification.file);
       if (churn.addedSkips > 0) {
         affected.push(classification.file.path);
-        evidence.push({
-          file: classification.file.path,
-          description: `${churn.addedSkips} test(s) newly skipped or disabled`,
-        });
+        const description = `${churn.addedSkips} test(s) newly skipped or disabled`;
+        const line = findFirstMatchingLine(classification.file, SKIP_PATTERNS);
+        evidence.push(
+          line === undefined
+            ? { file: classification.file.path, description }
+            : { file: classification.file.path, description, line },
+        );
       }
     }
 

@@ -1,7 +1,7 @@
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { fileMatches } from '../textScan.js';
+import { detectByKeywords } from '../keywordDetector.js';
 import { DATETIME_PATTERNS } from '../keywords.js';
 
 export const datetimeLogicChanged: SignalDefinition = {
@@ -18,20 +18,11 @@ export const datetimeLogicChanged: SignalDefinition = {
   qaResponse:
     'Test across a timezone different from the server, and across a boundary: midnight, month-end, year-end, and a daylight saving transition.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
-    const affected: string[] = [];
-
-    for (const classification of ctx.classifications) {
-      if (classification.role !== 'production') continue;
-      if (fileMatches(classification.file, DATETIME_PATTERNS)) {
-        affected.push(classification.file.path);
-        evidence.push({
-          file: classification.file.path,
-          description: 'Date/time-sensitive logic changed',
-        });
-      }
-    }
-
+    const { evidence, affected } = detectByKeywords(
+      ctx,
+      DATETIME_PATTERNS,
+      'Date/time-sensitive logic changed',
+    );
     if (evidence.length === 0) return [];
     const weight = resolveWeight(datetimeLogicChanged, ctx.config);
     return [buildSignal(datetimeLogicChanged, weight, evidence, affected)];

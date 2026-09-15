@@ -27,7 +27,14 @@ export function parseUnifiedDiff(diffText: string): ChangedFile[] {
         const type: DiffLineType =
           change.type === 'add' ? 'add' : change.type === 'del' ? 'del' : 'context';
         const content = change.content.length > 0 ? change.content.slice(1) : change.content;
-        return { type, content };
+        const line: DiffLine = { type, content };
+        if (change.type === 'add') line.newLine = change.ln;
+        else if (change.type === 'del') line.oldLine = change.ln;
+        else {
+          line.oldLine = change.ln1;
+          line.newLine = change.ln2;
+        }
+        return line;
       }),
     }));
 

@@ -1,7 +1,8 @@
+import type { SignalEvidence } from '../../domain/types.js';
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { anyMatch, changedLines } from '../textScan.js';
+import { anyMatch, changedLines, findFirstMatchingLine } from '../textScan.js';
 import { API_ENDPOINT_CONTENT_PATTERNS, API_ENDPOINT_PATH_PATTERNS } from '../keywords.js';
 
 export const apiEndpointChanged: SignalDefinition = {
@@ -18,7 +19,7 @@ export const apiEndpointChanged: SignalDefinition = {
   qaResponse:
     'Verify the success response is unchanged for existing callers, and that unauthenticated or malformed requests are still rejected correctly.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
+    const evidence: SignalEvidence[] = [];
     const affected: string[] = [];
 
     for (const classification of ctx.classifications) {
@@ -28,7 +29,13 @@ export const apiEndpointChanged: SignalDefinition = {
       const contentMatch = anyMatch(changedLines(file), API_ENDPOINT_CONTENT_PATTERNS);
       if (pathMatch || contentMatch) {
         affected.push(file.path);
-        evidence.push({ file: file.path, description: 'API endpoint or controller changed' });
+        const description = 'API endpoint or controller changed';
+        const line = findFirstMatchingLine(file, API_ENDPOINT_CONTENT_PATTERNS);
+        evidence.push(
+          line === undefined
+            ? { file: file.path, description }
+            : { file: file.path, description, line },
+        );
       }
     }
 

@@ -4,7 +4,29 @@ All notable changes to this project are documented in this file. The format
 is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [0.2.0] - Unreleased
+
+### Added
+
+- `release-lens report github`: posts inline PR review comments anchored to
+  the specific diff line a signal's evidence points to, plus a Check Run
+  ("ReleaseLens") showing the risk level and score. Reads repository, PR
+  number, and head SHA from the standard GitHub Actions environment, so it
+  needs no flags inside a `pull_request` workflow job. Supports `--dry-run`.
+- Line-number evidence for the ten signals where a specific line is
+  meaningful (payment, authentication, authorization, permissions,
+  validation, datetime, API endpoints, error handling, skipped tests, and
+  optional-to-required contract fields), threaded through from diff parsing.
+- `--fail-on <level>` on both `analyze` and `report github`, so either can
+  gate CI on a minimum risk level (low/moderate/high/critical) with
+  identical semantics.
+
+### Changed
+
+- This repository's own CI workflow now uses `report github` instead of a
+  hand-written `actions/github-script` comment step.
+
+## [0.1.0]
 
 ### Added
 
@@ -25,4 +47,3 @@ this project uses [Semantic Versioning](https://semver.org/).
   Python, Java, C#, Go, and Ruby.
 - GitHub Actions workflow example publishing a Markdown report to the job
   summary.
-- `analyze --fail-on <level>` for gating CI on a minimum risk level.

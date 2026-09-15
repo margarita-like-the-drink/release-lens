@@ -7,9 +7,13 @@ import { TempRepo } from '../helpers/tempRepo.js';
 
 const BIN = join(process.cwd(), 'src/cli/bin.ts');
 
-function runCli(cwd: string, args: string[]): { stdout: string; status: number } {
+function runCli(
+  cwd: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): { stdout: string; status: number } {
   try {
-    const stdout = execFileSync('npx', ['tsx', BIN, ...args], { cwd, encoding: 'utf8' });
+    const stdout = execFileSync('npx', ['tsx', BIN, ...args], { cwd, encoding: 'utf8', env });
     return { stdout, status: 0 };
   } catch (error) {
     const err = error as { stdout?: string; status?: number | null };
@@ -100,6 +104,53 @@ describe('release-lens analyze', () => {
     repo.commit('base');
 
     const result = runCli(repo.dir, ['analyze', '--fail-on', 'nonsense']);
+    expect(result.status).not.toBe(0);
+  });
+});
+
+describe('release-lens report github', () => {
+  it('dry-runs without a token, printing the inline comments and check run it would post', () => {
+    repo = new TempRepo();
+    repo.write('src/payments/retry.ts', 'export function retry() { return 1; }\n');
+    repo.commit('base');
+    repo.write('src/payments/retry.ts', 'export function retry() { return charge(); }\n');
+
+    const result = runCli(repo.dir, ['report', 'github', '--dry-run']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Would post');
+    const jsonStart = result.stdout.indexOf('{');
+    const parsed = JSON.parse(result.stdout.slice(jsonStart));
+    expect(parsed.review.comments.length).toBeGreaterThan(0);
+    expect(parsed.review.comments[0]).toMatchObject({
+      path: 'src/payments/retry.ts',
+      side: 'RIGHT',
+    });
+    expect(parsed.checkRun.name).toBe('ReleaseLens');
+  });
+
+  it('fails without --dry-run when no token is available', () => {
+    repo = new TempRepo();
+    repo.write('a.txt', 'hello\n');
+    repo.commit('base');
+
+    const envWithoutToken = { ...process.env };
+    delete envWithoutToken.GITHUB_TOKEN;
+
+    const result = runCli(
+      repo.dir,
+      ['report', 'github', '--repo', 'acme/widgets', '--pr', '1', '--sha', 'abc'],
+      envWithoutToken,
+    );
+    expect(result.status).not.toBe(0);
+  });
+
+  it('exits non-zero in dry-run mode when risk meets --fail-on', () => {
+    repo = new TempRepo();
+    repo.write('src/payments/retry.ts', 'export function retry() { return 1; }\n');
+    repo.commit('base');
+    repo.write('src/payments/retry.ts', 'export function retry() { return charge(); }\n');
+
+    const result = runCli(repo.dir, ['report', 'github', '--dry-run', '--fail-on', 'low']);
     expect(result.status).not.toBe(0);
   });
 });

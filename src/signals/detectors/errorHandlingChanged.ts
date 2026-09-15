@@ -1,7 +1,8 @@
+import type { SignalEvidence } from '../../domain/types.js';
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { changedLines, countMatches } from '../textScan.js';
+import { changedLines, countMatches, findFirstMatchingLine } from '../textScan.js';
 import { ERROR_HANDLING_PATTERNS } from '../keywords.js';
 
 const MIN_MATCHES = 2;
@@ -20,7 +21,7 @@ export const errorHandlingChanged: SignalDefinition = {
   qaResponse:
     'Trigger the actual failure condition rather than only reviewing the catch block, to confirm the handler is reached and behaves as intended.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
+    const evidence: SignalEvidence[] = [];
     const affected: string[] = [];
 
     for (const classification of ctx.classifications) {
@@ -28,10 +29,13 @@ export const errorHandlingChanged: SignalDefinition = {
       const matches = countMatches(changedLines(classification.file), combined());
       if (matches >= MIN_MATCHES) {
         affected.push(classification.file.path);
-        evidence.push({
-          file: classification.file.path,
-          description: `${matches} error-handling line(s) changed`,
-        });
+        const description = `${matches} error-handling line(s) changed`;
+        const line = findFirstMatchingLine(classification.file, ERROR_HANDLING_PATTERNS);
+        evidence.push(
+          line === undefined
+            ? { file: classification.file.path, description }
+            : { file: classification.file.path, description, line },
+        );
       }
     }
 

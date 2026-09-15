@@ -1,7 +1,7 @@
 import type { SignalDefinition } from '../types.js';
 import { resolveWeight } from '../types.js';
 import { buildSignal } from '../build.js';
-import { fileMatches } from '../textScan.js';
+import { detectByKeywords } from '../keywordDetector.js';
 import { PERMISSION_ROLE_PATTERNS } from '../keywords.js';
 
 export const permissionRoleChanged: SignalDefinition = {
@@ -18,20 +18,11 @@ export const permissionRoleChanged: SignalDefinition = {
   qaResponse:
     'Verify each affected role still has exactly the intended permissions, and check the boundary case of a user whose role just changed.',
   detect: (ctx) => {
-    const evidence: { file: string; description: string }[] = [];
-    const affected: string[] = [];
-
-    for (const classification of ctx.classifications) {
-      if (classification.role !== 'production') continue;
-      if (fileMatches(classification.file, PERMISSION_ROLE_PATTERNS)) {
-        affected.push(classification.file.path);
-        evidence.push({
-          file: classification.file.path,
-          description: 'Role/permission logic changed',
-        });
-      }
-    }
-
+    const { evidence, affected } = detectByKeywords(
+      ctx,
+      PERMISSION_ROLE_PATTERNS,
+      'Role/permission logic changed',
+    );
     if (evidence.length === 0) return [];
     const weight = resolveWeight(permissionRoleChanged, ctx.config);
     return [buildSignal(permissionRoleChanged, weight, evidence, affected)];

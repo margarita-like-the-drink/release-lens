@@ -1,6 +1,6 @@
 {
   "name": "release-lens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Risk-based QA intelligence for every pull request.",
   "keywords": [
     "qa",

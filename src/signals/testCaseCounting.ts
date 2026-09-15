@@ -30,7 +30,7 @@ const ASSERTION_PATTERNS = [
   /\bto\s+eq\b/,
 ];
 
-const SKIP_PATTERNS = [
+export const SKIP_PATTERNS = [
   /\.skip\s*\(/,
   /\bxit\s*\(/,
   /\bxdescribe\s*\(/,
