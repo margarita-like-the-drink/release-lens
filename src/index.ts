@@ -1,0 +1,12 @@
+export { runAnalysis, SCHEMA_VERSION } from './analyze.js';
+export type { AnalyzeOptions } from './analyze.js';
+export * from './domain/types.js';
+export { loadConfig } from './config/load.js';
+export { defaultConfig } from './config/schema.js';
+export type { ResolvedConfig, CriticalPathConfig, FeatureMapping } from './config/schema.js';
+export { SIGNAL_DEFINITIONS, findSignalDefinition } from './signals/registry.js';
+export type { SignalDefinition } from './signals/types.js';
+export { renderTerminalReport } from './reporters/terminal.js';
+export { renderJsonReport } from './reporters/json.js';
+export { renderMarkdownReport } from './reporters/markdown.js';
+export { GitError } from './git/repository.js';

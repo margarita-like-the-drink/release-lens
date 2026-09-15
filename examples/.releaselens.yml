@@ -1,0 +1,39 @@
+# Example ReleaseLens configuration. Copy to your repository root as
+# `.releaselens.yml` and adjust to your project's structure.
+#
+# Every key here is optional - ReleaseLens uses sensible defaults for any
+# section you omit. Run `release-lens explain` to see the defaults in effect.
+
+criticalPaths:
+  - path: 'src/payments/**'
+    name: 'Payments'
+    risk: 4
+  - path: 'src/auth/**'
+    name: 'Authentication'
+    risk: 4
+
+testPatterns:
+  - '**/*.spec.ts'
+  - '**/*.test.ts'
+  - '**/tests/**'
+
+ignore:
+  - 'docs/**'
+  - '**/*.md'
+
+# Points a production path at test files that don't follow a naming
+# convention ReleaseLens already recognizes.
+featureMappings:
+  - production: 'src/checkout/**'
+    tests:
+      - 'tests/e2e/checkout.*'
+
+risk:
+  largeChangeThreshold: 500
+  thresholds:
+    moderate: 4
+    high: 8
+    critical: 13
+  # Override a specific signal's weight without changing its detector.
+  weightOverrides:
+    dependencies-changed: 2
